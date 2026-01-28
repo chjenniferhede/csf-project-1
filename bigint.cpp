@@ -21,9 +21,9 @@ BigInt::BigInt(const BigInt &other)
   this->negative = other.negative;
 }
 
+// !! Destructor empty since vector and bool will clean up itself
 BigInt::~BigInt()
 {
-  // !! Destructor empty since vector will clean up itself
 }
 
 BigInt &BigInt::operator=(const BigInt &rhs)
@@ -38,9 +38,7 @@ bool BigInt::is_negative() const
 
 const std::vector<uint64_t> &BigInt::get_bit_vector() const 
 {
-  // Note: this is a const reference return type, so 
-  // we can just return the internal vector directly
-  return this->bit_vector;
+  return this->bit_vector; // return reference to internal vector
 }
 
 uint64_t BigInt::get_bits(unsigned index) const
@@ -103,15 +101,42 @@ int BigInt::compare(const BigInt &rhs) const
 
 std::string BigInt::to_hex() const
 {
+  if (this->bit_vector.size() == 0 ||
+      (this->bit_vector.size() == 1 && this->bit_vector[0] == 0)) {
+    return "0";
+  }
   // '-' sign if negative
   std::string result;
   if (this->negative) { 
     result += '-'; 
   }
   
-  // Convert to hex, the most significant append first (last in the array)
-  for (int i = this->bit_vector.size() - 1; i >= 0; i--) { 
-    result += to_hex_digit(bit_vector[i]);
+  const char* hex = "0123456789abcdef";
+  bool first = true;
+
+  // Convert to hex, the most significant append first (last in the vector)
+  for (size_t i = this->bit_vector.size(); i-- > 0;) { 
+    
+    std::string part;
+    uint64_t val = bit_vector[i];
+
+    // Run 16 times (64/4)
+    for (int j = 0; j < 16; j++) { 
+      int position = val & 0xF; // leaves only the last four bits
+      part = hex[position] + part; // insert at front (last is most significant)
+      val = val >> 4; // shift right by 4 bits to process next digit
+    }
+    if (first) {
+        // strip leading zeros from most significant part
+        size_t pos = part.find_first_not_of('0');
+        if (pos == std::string::npos) { // not found (guard against all zeros)
+            part = "0";
+        } else {
+            part.erase(0, pos);
+        }
+        first = false;
+    }
+    result += part; // first processed is most significant
   }
   return result;
 }
@@ -119,21 +144,4 @@ std::string BigInt::to_hex() const
 std::string BigInt::to_dec() const
 {
   // TODO: implement
-}
-
-// Helper function to convert a uint64_t to hex string
-std::string BigInt::to_hex_digit(uint64_t val) const
-{
-  std::string result;
-  const char* hex = "0123456789abcdef";
-  
-  // Run 16 times (64/4)
-  for (int i = 0; i < 16; i++) { 
-    uint64_t temp = val; 
-    int position = temp & 0xF; // this leaves only the last four digit
-    result = hex[position] + result; // insert at front
-    val = val >> 4; // shift right by 4 bits to process next digit
-  }
-
-  return result;
 }
