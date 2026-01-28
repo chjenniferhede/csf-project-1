@@ -188,6 +188,7 @@ public:
 
 private:
   // TODO: add helper functions
+  std::string to_hex_digit(uint64_t val) const;
 };
 
 #endif // BIGINT_H
