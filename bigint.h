@@ -14,7 +14,10 @@
 //! to record whether or not the value is negative.
 class BigInt {
 private:
-  // TODO: add fields
+  // vector of uint64_t values representing the bits of the magnitude
+  // bool represent whether the value is negative
+  std::vector<uint64_t> bit_vector;
+  bool negative;
 
 public:
   //! Default constructor.
