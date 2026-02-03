@@ -158,31 +158,86 @@ bool BigInt::is_zero() const
   return (this->bit_vector.size() == 1 && this->bit_vector[0] == 0);
 }
 
+// Add the magnitudes ignoring the signs
 static BigInt add_magnitudes(const BigInt &lhs, const BigInt &rhs)
-{}
+{
+
+  int maxSize = std::max(lhs.get_bit_vector().size(), rhs.get_bit_vector().size());
+
+  // Pad the smaller vector with zeros
+  std::vector<uint64_t> lhsPadded = lhs.get_bit_vector();
+  std::vector<uint64_t> rhsPadded = rhs.get_bit_vector();
+
+  while (lhsPadded.size() < maxSize) lhsPadded.push_back(0);
+  while (rhsPadded.size() < maxSize) rhsPadded.push_back(0);
+  
+  // Initiate result array and carry
+  std::vector<uint64_t> resultVec;
+  uint64_t carry = 0; 
+
+  // Adding from the least significant
+  for (size_t i = 0; i < maxSize; i++) {
+    uint64_t sum = lhsPadded[i] + rhsPadded[i] + carry;
+    carry = (sum < lhsPadded[i]) ? 1 : 0;
+    resultVec.push_back(sum);
+  }
+
+  // if there is a carry left
+  if (carry > 0) {
+    resultVec.push_back(carry);
+  }
+  return BigInt(resultVec, false); // magnitude only, sign will be handled by caller
+}
 
 static BigInt subtract_magnitudes(const BigInt &lhs, const BigInt &rhs)
-{}
+{
+  // If there is no difference, return 0
+  if (compare_magnitudes(lhs, rhs) == 0) return BigInt(0, false);
+
+  // Find the larger magnitude 
+  const BigInt *actualL = &lhs; // larger
+  const BigInt *actualR = &rhs; // smaller
+  if (compare_magnitudes(lhs, rhs) < 0) {
+    actualL = &rhs;
+    actualR = &lhs;
+  }
+
+  // Make the subtraction
+  const auto lhsVec = actualL->get_bit_vector();
+  const auto rhsVec = actualR->get_bit_vector();  
+
+  std::vector<uint64_t> resultVec;
+  uint64_t borrow = 0;
+
+  // Substracting
+  for (size_t i = 0; i < lhsVec.size(); i++) {
+    uint64_t diff = lhsVec[i] - rhsVec[i] - borrow;
+    borrow = (diff > lhsVec[i]) ? 1 : 0;
+    resultVec.push_back(diff);
+  }
+
+  // Remove leading zeros
+  while (resultVec.size() > 1 && resultVec.back() == 0) {
+    resultVec.pop_back();
+  }
+  
+  return BigInt(resultVec, false); // magnitude only, sign will be handled by caller
+}
 
 static int compare_magnitudes(const BigInt &lhs, const BigInt &rhs) 
 {
-  std::vector lhsVec = lhs.get_bit_vector();
-  std::vector rhsVec = rhs.get_bit_vector();
+  // Use reference to avoid copying
+  const auto &lhsVec = lhs.get_bit_vector();
+  const auto &rhsVec = rhs.get_bit_vector();
 
   // If one has more digits, it is larger
-  if (lhsVec.size() > rhsVec.size()) { 
-    return 1; 
-  } else if (lhsVec.size() < rhsVec.size()) { 
-    return -1; 
-  }
-
+  if (lhsVec.size() > rhsVec.size()) return 1; 
+  if (lhsVec.size() < rhsVec.size()) return -1; 
+  
   // If same digits. compare starting from most significant digit (last in array)
   for (size_t i = lhsVec.size(); i-- > 0;) { 
-    if (lhsVec[i] > rhsVec[i]) { 
-      return 1; 
-    } else if (lhsVec[i] < rhsVec[i]) { 
-      return -1;
-    }
+    if (lhsVec[i] > rhsVec[i]) return 1; 
+    if (lhsVec[i] < rhsVec[i]) return -1;
   }
 
   // If the loop went through without returning
