@@ -187,7 +187,13 @@ public:
   std::string to_dec() const;
 
 private:
+  bool is_zero() const;
+  static BigInt add_magnitudes(const BigInt &lhs, const BigInt &rhs);
+  static BigInt subtract_magnitudes(const BigInt &lhs, const BigInt &rhs);
 
+  // ! Return -1 if lhs < rhs, 0 if same, 1 if lhs > rhs
+  static int compare_magnitudes(const BigInt &lhs, const BigInt &rhs);
+  BigInt div_by_2() const;
 
 };
 

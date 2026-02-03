@@ -14,7 +14,7 @@ BigInt::BigInt(std::initializer_list<uint64_t> vals, bool negative)
   this->negative = negative;
 }
 
-// Constructor initializes to other's values
+// Copy Constructor initializes to other's values
 BigInt::BigInt(const BigInt &other)
 {
   this->bit_vector = other.bit_vector;
@@ -26,9 +26,15 @@ BigInt::~BigInt()
 {
 }
 
+// Override the assignment operator
 BigInt &BigInt::operator=(const BigInt &rhs)
 {
-  // TODO: implement
+  if (this != &rhs) { 
+    this->bit_vector = rhs.bit_vector;
+    this->negative = rhs.negative;
+  }
+  // 'this' is a pointer, *this is the BigInt obj
+  return *this;
 }
 
 bool BigInt::is_negative() const
@@ -53,7 +59,7 @@ uint64_t BigInt::get_bits(unsigned index) const
 
 BigInt BigInt::operator+(const BigInt &rhs) const
 {
-  // TODO: implement
+  
 }
 
 BigInt BigInt::operator-(const BigInt &rhs) const
@@ -64,7 +70,7 @@ BigInt BigInt::operator-(const BigInt &rhs) const
 BigInt BigInt::operator-() const
 {
   // If value is zero, return zero (sign doesn't matter)
-  if (this->bit_vector.size() == 1 && this->bit_vector[0] == 0) {
+  if (is_zero) {
     return BigInt(0, false);
   } else {
     // Return new BigInt with same bit_vector but flipped sign
@@ -120,7 +126,7 @@ std::string BigInt::to_hex() const
     std::string part;
     uint64_t val = bit_vector[i];
 
-    // Run 16 times (64/4)
+    // Run 16 times (64/4) from the first 4 bits of this uint64_t to the last
     for (int j = 0; j < 16; j++) { 
       int position = val & 0xF; // leaves only the last four bits
       part = hex[position] + part; // insert at front (last is most significant)
@@ -129,7 +135,7 @@ std::string BigInt::to_hex() const
     if (first) {
         // strip leading zeros from most significant part
         size_t pos = part.find_first_not_of('0');
-        if (pos == std::string::npos) { // not found (guard against all zeros)
+        if (pos == std::string::npos) { // npos means not found
             part = "0";
         } else {
             part.erase(0, pos);
@@ -145,3 +151,47 @@ std::string BigInt::to_dec() const
 {
   // TODO: implement
 }
+
+// Helper functions
+bool BigInt::is_zero() const
+{
+  return (this->bit_vector.size() == 1 && this->bit_vector[0] == 0);
+}
+
+static BigInt add_magnitudes(const BigInt &lhs, const BigInt &rhs)
+{}
+
+static BigInt subtract_magnitudes(const BigInt &lhs, const BigInt &rhs)
+{}
+
+static int compare_magnitudes(const BigInt &lhs, const BigInt &rhs) 
+{
+  std::vector lhsVec = lhs.get_bit_vector();
+  std::vector rhsVec = rhs.get_bit_vector();
+
+  // If one has more digits, it is larger
+  if (lhsVec.size() > rhsVec.size()) { 
+    return 1; 
+  } else if (lhsVec.size() < rhsVec.size()) { 
+    return -1; 
+  }
+
+  // If same digits. compare starting from most significant digit (last in array)
+  for (size_t i = lhsVec.size(); i-- > 0;) { 
+    if (lhsVec[i] > rhsVec[i]) { 
+      return 1; 
+    } else if (lhsVec[i] < rhsVec[i]) { 
+      return -1;
+    }
+  }
+
+  // If the loop went through without returning
+  return 0;
+
+}
+
+BigInt BigInt::div_by_2() const
+{}
+
+// Note about static: have internal linkage, only inside the file, belongs to the class
+// not an instance. Has no 'this' pointer. 
