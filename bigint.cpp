@@ -82,7 +82,13 @@ BigInt BigInt::operator-() const
 
 bool BigInt::is_bit_set(unsigned n) const
 {
-  // TODO: implement
+  // Each uint64_t has 64 bits
+  unsigned index = n / 64; // which uint64_t in the vector
+  unsigned bitPos = n % 64; // which bit in that uint64
+  uint64_t chunk = get_bits(index); // get the uint64_t at that index
+  // true if n is set to 1
+  if (chunk == 0) return false; // out of bound
+  return (chunk & (1ULL << bitPos)) != 0; // 1ULL is 64-bit 1
 }
 
 BigInt BigInt::operator<<(unsigned n) const
