@@ -172,7 +172,7 @@ bool BigInt::is_zero() const
 }
 
 // Add the magnitudes ignoring the signs
-static BigInt add_magnitudes(const BigInt &lhs, const BigInt &rhs)
+BigInt BigInt::add_magnitudes(const BigInt &lhs, const BigInt &rhs)
 {
 
   int maxSize = std::max(lhs.get_bit_vector().size(), rhs.get_bit_vector().size());
@@ -199,10 +199,14 @@ static BigInt add_magnitudes(const BigInt &lhs, const BigInt &rhs)
   if (carry > 0) {
     resultVec.push_back(carry);
   }
-  return BigInt(resultVec, false); // magnitude only, sign will be handled by caller
+
+  BigInt result; 
+  result.bit_vector = resultVec;
+  result.negative = false; // does not matter
+  return result;
 }
 
-static BigInt subtract_magnitudes(const BigInt &lhs, const BigInt &rhs)
+BigInt BigInt::subtract_magnitudes(const BigInt &lhs, const BigInt &rhs)
 {
   // If there is no difference, return 0
   if (compare_magnitudes(lhs, rhs) == 0) return BigInt(0, false);
@@ -215,10 +219,11 @@ static BigInt subtract_magnitudes(const BigInt &lhs, const BigInt &rhs)
     actualR = &lhs;
   }
 
-  // Make the subtraction
+  // Get the bit vectors
   const auto lhsVec = actualL->get_bit_vector();
   const auto rhsVec = actualR->get_bit_vector();  
 
+  // Setup 
   std::vector<uint64_t> resultVec;
   uint64_t borrow = 0;
 
@@ -234,10 +239,13 @@ static BigInt subtract_magnitudes(const BigInt &lhs, const BigInt &rhs)
     resultVec.pop_back();
   }
 
-  return BigInt(resultVec, false); // magnitude only, sign will be handled by caller
+  BigInt result; 
+  result.bit_vector = resultVec;
+  result.negative = false; // does not matter
+  return result;
 }
 
-static int compare_magnitudes(const BigInt &lhs, const BigInt &rhs) 
+int BigInt::compare_magnitudes(const BigInt &lhs, const BigInt &rhs) 
 {
   // Use reference to avoid copying
   const auto &lhsVec = lhs.get_bit_vector();
