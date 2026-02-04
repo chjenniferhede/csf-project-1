@@ -142,7 +142,26 @@ BigInt BigInt::operator<<(unsigned n) const
 
 BigInt BigInt::operator*(const BigInt &rhs) const
 {
-  // TODO: implement
+  // Setup
+  BigInt result = BigInt(0, false); 
+  if (this->is_zero() || rhs.is_zero()) return result;
+
+  // Compute the number of bits to decompose
+  size_t decomposeSize = this->bit_vector.size() * 64;
+
+  // For each bit in this,
+  for (int i = 0; i < decomposeSize; i++) { 
+    // if it is a '1', start from least sig, left shift i bits in rhs
+    if (this->is_bit_set(i)) { 
+      result = result + (rhs << i);
+    }
+  }
+
+  // Correct the sign of the result
+  if (this->negative != rhs.negative) {
+    result.negative = true;
+  } 
+  return result;
 }
 
 BigInt BigInt::operator/(const BigInt &rhs) const
