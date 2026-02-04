@@ -59,12 +59,29 @@ uint64_t BigInt::get_bits(unsigned index) const
 
 BigInt BigInt::operator+(const BigInt &rhs) const
 {
+  // Same sign 
+  if (this->negative == rhs.is_negative()) { 
+    BigInt result = add_magnitudes(*this, rhs);
+    result.negative = this->negative;
+    return result;
+  }
+
+  // Different sign
+  BigInt result = subtract_magnitudes(*this, rhs); 
+
+  // The sign of the result is the same as the one with larger magnitude
+  if (compare_magnitudes(*this, rhs) >= 0) { 
+    result.negative = this->negative; 
+  } else {
+    result.negative = rhs.is_negative(); 
+  }
+  return result;
   
 }
 
 BigInt BigInt::operator-(const BigInt &rhs) const
 {
-  // Hint: a - b could be computed as a + -b
+  return *this + (-rhs);
 }
 
 BigInt BigInt::operator-() const
@@ -93,7 +110,34 @@ bool BigInt::is_bit_set(unsigned n) const
 
 BigInt BigInt::operator<<(unsigned n) const
 {
-  // TODO: implement
+  if (is_zero() || n == 0) return *this; 
+
+  BigInt copy(*this);
+
+  // Handle multiplication of 64 first
+  int pos = n / 64; 
+  copy.bit_vector.insert(copy.bit_vector.begin(), pos, 0);
+  if (n % 64 == 0) return copy;
+  
+  // Setup 
+  int bitShift = n % 64;
+  uint64_t carry = 0;
+
+  // Shift bits in uint64_t to left by bitShift
+  for (size_t i = 0; i < copy.bit_vector.size(); i++) {
+    uint64_t current = copy.bit_vector[i];
+    // bits that will overflow to the next uint64_t: leftmost bitShift bits of current
+    uint64_t newCarry = current >> (64 - bitShift); 
+    copy.bit_vector[i] = (current << bitShift) | carry; // shift and add carry from last
+    carry = newCarry; 
+  } 
+
+  // if carry left, there is a new most significant uint64_t at the end
+  if (carry > 0) {
+    copy.bit_vector.push_back(carry); 
+  }
+
+  return copy;
 }
 
 BigInt BigInt::operator*(const BigInt &rhs) const
@@ -274,6 +318,3 @@ int BigInt::compare_magnitudes(const BigInt &lhs, const BigInt &rhs)
 
 BigInt BigInt::div_by_2() const
 {}
-
-// Note about static: have internal linkage, only inside the file, belongs to the class
-// not an instance. Has no 'this' pointer. 
