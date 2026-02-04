@@ -102,8 +102,21 @@ BigInt BigInt::operator/(const BigInt &rhs) const
 
 int BigInt::compare(const BigInt &rhs) const
 {
-  // TODO: implement
+  // Equal
+  if (compare_magnitudes(*this, rhs) == 0 && this->negative == rhs.negative) return 0;
+
+  // Different sign
+  if (this->negative != rhs.negative) { 
+    return (this->negative) ? -1 : 1; // if 'this' is negative, rhs < lhs
+  }
+
+  // Same sign
+  // if 'this' has larger magnitude, both negative means larger mag is smaller
+  if (compare_magnitudes(*this, rhs) == 1) return (this->negative) ? -1 : 1; 
+  // if 'this' has smaller magnitude, both negative means smaller mag is bigger
+  if (compare_magnitudes(*this, rhs) == -1) return (this->negative) ? 1 : -1; 
 }
+
 
 std::string BigInt::to_hex() const
 {
@@ -220,7 +233,7 @@ static BigInt subtract_magnitudes(const BigInt &lhs, const BigInt &rhs)
   while (resultVec.size() > 1 && resultVec.back() == 0) {
     resultVec.pop_back();
   }
-  
+
   return BigInt(resultVec, false); // magnitude only, sign will be handled by caller
 }
 
