@@ -15,7 +15,8 @@ struct TestObjs {
   BigInt negative_nine;
   BigInt negative_three;
   BigInt nine;
-  // TODO: add additional test fixture objects
+  BigInt large1;
+  BigInt empty_initlist;
 
   TestObjs();
 };
@@ -56,6 +57,8 @@ void test_compare_1(TestObjs *objs);
 void test_compare_2(TestObjs *objs);
 void test_div_1(TestObjs *objs);
 void test_div_2(TestObjs *objs);
+void test_div_3(TestObjs *objs);
+void test_div_combinations(TestObjs *objs);
 void test_to_hex_1(TestObjs *objs);
 void test_to_hex_2(TestObjs *objs);
 void test_to_dec_1(TestObjs *objs);
@@ -92,6 +95,8 @@ int main(int argc, char **argv) {
   TEST(test_compare_2);
   TEST(test_div_1);
   TEST(test_div_2);
+  TEST(test_div_3);
+  TEST(test_div_combinations);
   TEST(test_to_hex_1);
   TEST(test_to_hex_2);
   TEST(test_to_dec_1);
@@ -115,7 +120,7 @@ TestObjs::TestObjs()
   , negative_nine(9UL, true)
   , negative_three(3UL, true)
   , nine(9UL)
-  // TODO: initialize additional test fixture objects
+  , empty_initlist({})
 {
 }
 
@@ -210,6 +215,10 @@ void test_initlist_ctor(TestObjs *objs) {
 
   check_contents(objs->negative_two_pow_64, { 0UL, 1UL });
   ASSERT(objs->negative_two_pow_64.is_negative());
+
+  // check for empty initializer list
+  check_contents(objs->empty_initlist, { 0UL });
+  ASSERT(!objs->empty_initlist.is_negative());
 }
 
 void test_copy_ctor(TestObjs *objs) {
@@ -526,6 +535,74 @@ void test_div_2(TestObjs *) {
     BigInt result = left / right;
     check_contents(result, {0xfb3e6b02be39b6ceUL, 0x25UL});
     ASSERT(!result.is_negative());
+  }
+}
+
+void test_div_3(TestObjs *objs) {
+  // div by 1: x / 1 == x
+  {
+    BigInt val({0x12345678abcdefUL, 0x9abcdef0UL});
+    BigInt one(1UL);
+    BigInt result = val / one;
+    check_contents(result, { 0x12345678abcdefUL, 0x9abcdef0UL });
+    ASSERT(!result.is_negative());
+  }
+
+  // div by zero: should throw
+  try {
+    BigInt res = objs->nine / objs->zero;
+    FAIL("division by zero should throw");
+  } catch (std::invalid_argument &ex) {
+    // good
+  }
+
+  // dividend equals divisor * quotient (quotient equals exact upper bound)
+  {
+    BigInt divisor(12345UL);
+    BigInt expected_q(6789UL);
+    BigInt dividend = divisor * expected_q;
+    BigInt q = dividend / divisor;
+    check_contents(q, { expected_q.get_bits(0) });
+    ASSERT(!q.is_negative());
+  }
+
+  // dividend smaller than divisor => quotient zero
+  {
+    BigInt small(3UL);
+    BigInt big(5UL);
+    BigInt q = small / big;
+    check_contents(q, { 0UL });
+    ASSERT(!q.is_negative());
+  }
+}
+
+void test_div_combinations(TestObjs *objs) {
+  // +/+ => positive
+  {
+    BigInt q = objs->nine / objs->three;
+    check_contents(q, { 3UL });
+    ASSERT(!q.is_negative());
+  }
+
+  // +/- => negative
+  {
+    BigInt q = objs->nine / objs->negative_three;
+    check_contents(q, { 3UL });
+    ASSERT(q.is_negative());
+  }
+
+  // -/+ => negative
+  {
+    BigInt q = objs->negative_nine / objs->three;
+    check_contents(q, { 3UL });
+    ASSERT(q.is_negative());
+  }
+
+  // -/- => positive
+  {
+    BigInt q = objs->negative_nine / objs->negative_three;
+    check_contents(q, { 3UL });
+    ASSERT(!q.is_negative());
   }
 }
 
