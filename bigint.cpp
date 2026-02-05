@@ -258,7 +258,7 @@ std::string BigInt::to_hex() const
     // Run 16 times (64/4) from the first 4 bits of this uint64_t to the last
     for (int j = 0; j < 16; j++) { 
       int position = val & 0xF; // leaves only the last four bits
-      part = hex[position] + part; // insert at front (last is most significant)
+      part.insert(part.begin(), hex[position]); // insert at front (last is most significant)
       val = val >> 4; // shift right by 4 bits to process next digit
     }
     if (first) {
@@ -279,8 +279,8 @@ std::string BigInt::to_hex() const
 std::string BigInt::to_dec() const
 {
   // return zero if the value is zero
-  if (this->bit_vector.size() == 0 || 
-      this->bit_vector.size() == 1 && this->bit_vector[0] == 0) {
+  if ((this->bit_vector.size() == 0) || 
+      (this->bit_vector.size() == 1 && this->bit_vector[0] == 0)) {
     return "0";
   }
   // '-' sign if negative, also make it abs value for processing
@@ -314,14 +314,14 @@ std::string BigInt::to_dec() const
 bool BigInt::is_zero() const
 {
   size_t size = this->bit_vector.size();
-  return ( size ==0 || size == 1 && this->bit_vector[0] == 0);
+  return ( size ==0 || (size == 1 && this->bit_vector[0] == 0));
 }
 
 // Add the magnitudes ignoring the signs
 BigInt BigInt::add_magnitudes(const BigInt &lhs, const BigInt &rhs)
 {
 
-  int maxSize = std::max(lhs.get_bit_vector().size(), rhs.get_bit_vector().size());
+  size_t maxSize = std::max(lhs.get_bit_vector().size(), rhs.get_bit_vector().size());
 
   // Pad the smaller vector with zeros
   std::vector<uint64_t> lhsPadded = lhs.get_bit_vector();
