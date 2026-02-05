@@ -335,5 +335,25 @@ int BigInt::compare_magnitudes(const BigInt &lhs, const BigInt &rhs)
 
 }
 
+// This is a right shift >> by 1
 BigInt BigInt::div_by_2() const
-{}
+{
+  // Setup
+  if (is_zero()) return *this;
+  BigInt copy(*this);
+  uint64_t carry = 0;
+
+  // Loop starting from the most significant
+  for (size_t i = copy.bit_vector.size(); i-- > 0;) { 
+    uint64_t temp = (copy.bit_vector[i] & 1) << 63;
+    copy.bit_vector[i] = (copy.bit_vector[i] >> 1) | carry; // Moved right, put carry as most sig
+    carry = temp; // set next carry
+  }
+
+  // Most sig uint could became 0
+  if (copy.bit_vector.back() == 0 && copy.bit_vector.size() > 1) {
+    copy.bit_vector.pop_back();
+  }
+
+  return copy;  
+}
