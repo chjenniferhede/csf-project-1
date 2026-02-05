@@ -39,6 +39,7 @@ void test_u64_ctor(TestObjs *objs);
 void test_initlist_ctor(TestObjs *objs);
 void test_copy_ctor(TestObjs *objs);
 void test_get_bits(TestObjs *objs);
+void test_bit_edge_cases(TestObjs *objs);
 void test_add_1(TestObjs *objs);
 void test_add_2(TestObjs *objs);
 void test_add_3(TestObjs *objs);
@@ -53,6 +54,9 @@ void test_lshift_1(TestObjs *objs);
 void test_lshift_2(TestObjs *objs);
 void test_mul_1(TestObjs *objs);
 void test_mul_2(TestObjs *objs);
+void test_mul_combinations(TestObjs *objs);
+void test_cancel(TestObjs *objs);
+void test_exceptions(TestObjs *objs);
 void test_compare_1(TestObjs *objs);
 void test_compare_2(TestObjs *objs);
 void test_div_1(TestObjs *objs);
@@ -77,6 +81,7 @@ int main(int argc, char **argv) {
   TEST(test_initlist_ctor);
   TEST(test_copy_ctor);
   TEST(test_get_bits);
+  TEST(test_bit_edge_cases);
   TEST(test_add_1);
   TEST(test_add_2);
   TEST(test_add_3);
@@ -91,6 +96,9 @@ int main(int argc, char **argv) {
   TEST(test_lshift_2);
   TEST(test_mul_1);
   TEST(test_mul_2);
+  TEST(test_mul_combinations);
+  TEST(test_cancel);
+  TEST(test_exceptions);
   TEST(test_compare_1);
   TEST(test_compare_2);
   TEST(test_div_1);
@@ -240,6 +248,30 @@ void test_get_bits(TestObjs *objs) {
 
   ASSERT(0UL == objs->two_pow_64.get_bits(0));
   ASSERT(1UL == objs->two_pow_64.get_bits(1));
+}
+
+void test_bit_edge_cases(TestObjs *objs) {
+  // out-of-range index should return 0 / false
+  {
+    BigInt val({1UL});
+    ASSERT(val.get_bits(1000000) == 0UL);
+    ASSERT(!val.is_bit_set(1000000));
+  }
+
+  // negative BigInt: bit queries observe magnitude
+  {
+    BigInt neg = objs->negative_nine;
+    ASSERT(neg.get_bits(0) == 9UL);
+    ASSERT(neg.is_bit_set(0));
+  }
+
+  // very large index within a high word
+  {
+    BigInt big({0UL, 0UL, 0UL, 1UL}); // word index 3 -> bit index 192
+    ASSERT(big.get_bits(3) == 1UL);
+    ASSERT(big.is_bit_set(192));
+    ASSERT(!big.is_bit_set(191));
+  }
 }
 
 void test_add_1(TestObjs *objs) {
@@ -603,6 +635,73 @@ void test_div_combinations(TestObjs *objs) {
     BigInt q = objs->negative_nine / objs->negative_three;
     check_contents(q, { 3UL });
     ASSERT(!q.is_negative());
+  }
+}
+
+void test_mul_combinations(TestObjs *objs) {
+  // +/+ => positive
+  {
+    BigInt p = objs->three * objs->three;
+    check_contents(p, { 9UL });
+    ASSERT(!p.is_negative());
+  }
+
+  // +/- => negative
+  {
+    BigInt p = objs->three * objs->negative_three;
+    check_contents(p, { 9UL });
+    ASSERT(p.is_negative());
+  }
+
+  // -/+ => negative
+  {
+    BigInt p = objs->negative_three * objs->three;
+    check_contents(p, { 9UL });
+    ASSERT(p.is_negative());
+  }
+
+  // -/- => positive
+  {
+    BigInt p = objs->negative_three * objs->negative_three;
+    check_contents(p, { 9UL });
+    ASSERT(!p.is_negative());
+  }
+}
+
+void test_cancel(TestObjs *objs) {
+  // addition exact-cancel: a + (-a) == 0
+  {
+    BigInt a = objs->two_pow_64;
+    BigInt res = a + (-a);
+    check_contents(res, { 0UL });
+    ASSERT(!res.is_negative());
+  }
+
+  // subtraction exact-cancel: a - a == 0
+  {
+    BigInt a = objs->two_pow_64;
+    BigInt res = a - a;
+    check_contents(res, { 0UL });
+    ASSERT(!res.is_negative());
+  }
+}
+
+void test_exceptions(TestObjs *objs) {
+  // left shift of a negative value should throw
+  try {
+    objs->negative_nine << 1;
+    FAIL("left shifting a negative value should throw");
+  } catch (std::invalid_argument &ex) {
+    // expected
+  }
+
+  // division by zero should throw
+  try {
+    BigInt r = objs->nine / objs->zero;
+    (void)r;
+    FAIL("division by zero should throw");
+  } catch (std::invalid_argument &ex) {
+    // expected
   }
 }
 
