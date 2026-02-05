@@ -348,15 +348,27 @@ BigInt BigInt::add_magnitudes(const BigInt &lhs, const BigInt &rhs)
 
   // Adding from the least significant
   for (size_t i = 0; i < maxSize; i++) {
-    uint64_t sum = lhsPadded[i] + rhsPadded[i] + carry;
-    carry = (sum < lhsPadded[i]) ? 1 : 0;
-    resultVec.push_back(sum);
+    uint64_t a = lhsPadded[i];
+    uint64_t b = rhsPadded[i];
+
+    // detect overflow
+    uint64_t sum = a + b;
+    bool overflow_1 = (sum < a);
+
+    // add incoming carry, detect overflow
+    uint64_t result = sum + carry;
+    bool overflow_2 = (result < sum);
+    resultVec.push_back(result);
+    carry = (overflow_1 || overflow_2) ? 1 : 0;
   }
 
-  // if there is a carry left
+  // if there is a carry left, append it
   if (carry > 0) {
     resultVec.push_back(carry);
   }
+
+  // Trim any leading zero 
+  while (resultVec.size() > 1 && resultVec.back() == 0) resultVec.pop_back();
 
   BigInt result; 
   result.bit_vector = resultVec;
