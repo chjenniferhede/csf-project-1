@@ -194,6 +194,7 @@ private:
   // ! Return -1 if lhs < rhs, 0 if same, 1 if lhs > rhs
   static int compare_magnitudes(const BigInt &lhs, const BigInt &rhs);
   BigInt div_by_2() const;
+  BigInt divide_helper(const BigInt &lower, const BigInt &upper, const BigInt &rhs) const;
 
 };
 

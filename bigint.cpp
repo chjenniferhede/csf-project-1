@@ -1,4 +1,7 @@
 #include <cassert>
+#include <sstream>
+#include <string>
+#include <algorithm>
 #include "bigint.h"
 
 // Notes: 
@@ -50,7 +53,7 @@ const std::vector<uint64_t> &BigInt::get_bit_vector() const
 uint64_t BigInt::get_bits(unsigned index) const
 {
   // If index is within bounds of vector, return the value at that index
-  if (this->bit_vector.size() > index && index >= 0) {
+  if (this->bit_vector.size() > index) {
     return this->bit_vector[index];
   } else {
     return 0;
@@ -87,7 +90,7 @@ BigInt BigInt::operator-(const BigInt &rhs) const
 BigInt BigInt::operator-() const
 {
   // If value is zero, return zero (sign doesn't matter)
-  if (is_zero) {
+  if (is_zero()) {
     return BigInt(0, false);
   } else {
     // Return new BigInt with same bit_vector but flipped sign
@@ -150,7 +153,7 @@ BigInt BigInt::operator*(const BigInt &rhs) const
   size_t decomposeSize = this->bit_vector.size() * 64;
 
   // For each bit in this,
-  for (int i = 0; i < decomposeSize; i++) { 
+  for (size_t i = 0; i < decomposeSize; i++) { 
     // if it is a '1', start from least sig, left shift i bits in rhs
     if (this->is_bit_set(i)) { 
       result = result + (rhs << i);
@@ -166,7 +169,23 @@ BigInt BigInt::operator*(const BigInt &rhs) const
 
 BigInt BigInt::operator/(const BigInt &rhs) const
 {
-  // TODO: implement
+  if (rhs.is_zero()) {
+    throw std::invalid_argument("Division by zero");
+  }
+
+  // We know that the result is between 0 - this
+  BigInt lower(0, false);
+  BigInt upper = *this;
+
+  // this can be recursive, so I wrote a helper
+  BigInt quotient = divide_helper(lower, upper, rhs);
+
+  // Correct the sign of the result
+  if (this->negative != rhs.negative) {
+    quotient.negative = true; 
+  }
+
+  return quotient;
 }
 
 int BigInt::compare(const BigInt &rhs) const
@@ -194,9 +213,9 @@ std::string BigInt::to_hex() const
     return "0";
   }
   // '-' sign if negative
-  std::string result;
+  std::ostringstream result;
   if (this->negative) { 
-    result += '-'; 
+    result << '-'; 
   }
   
   const char* hex = "0123456789abcdef";
@@ -224,14 +243,39 @@ std::string BigInt::to_hex() const
         }
         first = false;
     }
-    result += part; // first processed is most significant
+    result << part; // first processed is most significant
   }
-  return result;
+  return result.str();
 }
 
 std::string BigInt::to_dec() const
 {
-  // TODO: implement
+  // return zero if the value is zero
+  if (this->bit_vector.size() == 0 || 
+      this->bit_vector.size() == 1 && this->bit_vector[0] == 0) {
+    return "0";
+  }
+  // '-' sign if negative
+  std::ostringstream result;
+  if (this->negative) {
+    result << '-';
+  } 
+  // Collect the digits in reverse order, then reverse at the end
+  std::string digits;
+
+  // Repeatedly divide by 10 and collect the remainders as digits
+  BigInt copy(*this);
+  BigInt ten(10, false);
+  while (!copy.is_zero()) {
+    BigInt remainder = copy - (copy / ten) * ten; // copy % 10
+    digits += (remainder.get_bits(0) + '0'); // convert to char
+    copy = copy / ten;
+  }
+
+  // Reverse the digits to get the correct order and return
+  std::reverse(digits.begin(), digits.end());
+  result << digits;
+  return result.str();
 }
 
 // Helper functions
@@ -350,10 +394,33 @@ BigInt BigInt::div_by_2() const
     carry = temp; // set next carry
   }
 
-  // Most sig uint could became 0
-  if (copy.bit_vector.back() == 0 && copy.bit_vector.size() > 1) {
+  // Most sig uint could became 0, trim it
+  while (copy.bit_vector.back() == 0 && copy.bit_vector.size() > 1) {
     copy.bit_vector.pop_back();
   }
 
   return copy;  
+}
+
+ BigInt BigInt::divide_helper(const BigInt &lower, const BigInt &upper, const BigInt &rhs) const{ 
+    
+  // Base cases
+  if (lower + BigInt(1) == upper || lower == upper) {
+    return lower;
+  }
+
+  // Find the next mid point
+  BigInt mid = lower + ((upper - lower).div_by_2());
+
+  // If the product is equal to 'this', we found the quotient
+  BigInt prod = rhs * mid;
+
+  // call recursively
+  if (prod == *this) {
+    return mid;
+  } else if (prod < *this) {
+    return divide_helper(mid, upper, rhs);
+  } else {
+    return divide_helper(lower, mid, rhs);
+  }
 }
