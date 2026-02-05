@@ -57,6 +57,9 @@ void test_mul_2(TestObjs *objs);
 void test_mul_combinations(TestObjs *objs);
 void test_cancel(TestObjs *objs);
 void test_exceptions(TestObjs *objs);
+void test_mul_identity_zero(TestObjs *objs);
+void test_lshift_identity_zero(TestObjs *objs);
+void test_compare_constructors(TestObjs *objs);
 void test_compare_1(TestObjs *objs);
 void test_compare_2(TestObjs *objs);
 void test_div_1(TestObjs *objs);
@@ -67,7 +70,8 @@ void test_to_hex_1(TestObjs *objs);
 void test_to_hex_2(TestObjs *objs);
 void test_to_dec_1(TestObjs *objs);
 void test_to_dec_2(TestObjs *objs);
-// TODO: declare additional test functions
+void test_division_remainder(TestObjs *objs);
+void test_to_dec_3(TestObjs *objs);
 
 int main(int argc, char **argv) {
   if (argc > 1) {
@@ -94,13 +98,17 @@ int main(int argc, char **argv) {
   TEST(test_is_bit_set_2);
   TEST(test_lshift_1);
   TEST(test_lshift_2);
+  TEST(test_lshift_identity_zero);
   TEST(test_mul_1);
   TEST(test_mul_2);
   TEST(test_mul_combinations);
+  TEST(test_mul_identity_zero);
   TEST(test_cancel);
   TEST(test_exceptions);
+  TEST(test_compare_constructors);
   TEST(test_compare_1);
   TEST(test_compare_2);
+  TEST(test_division_remainder);
   TEST(test_div_1);
   TEST(test_div_2);
   TEST(test_div_3);
@@ -109,7 +117,7 @@ int main(int argc, char **argv) {
   TEST(test_to_hex_2);
   TEST(test_to_dec_1);
   TEST(test_to_dec_2);
-  // TODO: add calls to TEST for additional test functions
+  TEST(test_to_dec_3);
 
   TEST_FINI();
 }
@@ -638,6 +646,78 @@ void test_div_combinations(TestObjs *objs) {
   }
 }
 
+void test_division_remainder(TestObjs *objs) {
+  // Test several sign combinations to ensure a == (a/b)*b + r and |r| < |b|
+  {
+    BigInt a(7UL);
+    BigInt b(3UL);
+    BigInt q = a / b;
+    BigInt prod = q * b;
+    BigInt r = a - prod;
+    // a == prod + r
+    BigInt recomputed = prod + r;
+    ASSERT(a.compare(recomputed) == 0);
+    // |r| < |b|
+    BigInt abs_r = r.is_negative() ? -r : r;
+    BigInt abs_b = b.is_negative() ? -b : b;
+    ASSERT(abs_r.compare(abs_b) < 0);
+  }
+
+  {
+    BigInt a(7UL, true); // -7
+    BigInt b(3UL);
+    BigInt q = a / b;
+    BigInt prod = q * b;
+    BigInt r = a - prod;
+    BigInt recomputed = prod + r;
+    ASSERT(a.compare(recomputed) == 0);
+    BigInt abs_r = r.is_negative() ? -r : r;
+    BigInt abs_b = b.is_negative() ? -b : b;
+    ASSERT(abs_r.compare(abs_b) < 0);
+  }
+
+  {
+    BigInt a(7UL);
+    BigInt b(3UL, true); // -3
+    BigInt q = a / b;
+    BigInt prod = q * b;
+    BigInt r = a - prod;
+    BigInt recomputed = prod + r;
+    ASSERT(a.compare(recomputed) == 0);
+    BigInt abs_r = r.is_negative() ? -r : r;
+    BigInt abs_b = b.is_negative() ? -b : b;
+    ASSERT(abs_r.compare(abs_b) < 0);
+  }
+
+  {
+    BigInt a(7UL, true);
+    BigInt b(3UL, true);
+    BigInt q = a / b;
+    BigInt prod = q * b;
+    BigInt r = a - prod;
+    BigInt recomputed = prod + r;
+    ASSERT(a.compare(recomputed) == 0);
+    BigInt abs_r = r.is_negative() ? -r : r;
+    BigInt abs_b = b.is_negative() ? -b : b;
+    ASSERT(abs_r.compare(abs_b) < 0);
+  }
+}
+
+void test_to_dec_3(TestObjs *objs) {
+  // 10^19 and 10^20 decimal boundaries
+  BigInt ten(10UL);
+  BigInt p19(1UL);
+  for (int i = 0; i < 19; ++i) p19 = p19 * ten;
+  BigInt p20 = p19 * ten;
+  ASSERT(p19.to_dec() == "10000000000000000000");
+  ASSERT(p20.to_dec() == "100000000000000000000");
+
+  // to_hex with a middle zero 
+  BigInt val({0x89UL, 0x0UL, 0x1UL});
+  std::string hex = val.to_hex();
+  ASSERT(hex == "100000000000000000000000000000089");
+}
+
 void test_mul_combinations(TestObjs *objs) {
   // +/+ => positive
   {
@@ -666,6 +746,75 @@ void test_mul_combinations(TestObjs *objs) {
     check_contents(p, { 9UL });
     ASSERT(!p.is_negative());
   }
+}
+
+void test_mul_identity_zero(TestObjs *objs) {
+  // x * 1 == x and 1 * x == x (preserve sign)
+  {
+    BigInt x = objs->two_pow_64;
+    BigInt one(1UL);
+    BigInt p1 = x * one;
+    BigInt p2 = one * x;
+    check_contents(p1, { 0UL, 1UL });
+    check_contents(p2, { 0UL, 1UL });
+    ASSERT(!p1.is_negative());
+    ASSERT(!p2.is_negative());
+  }
+
+  // negative * 1 preserves sign
+  {
+    BigInt nx = objs->negative_two_pow_64;
+    BigInt one(1UL);
+    BigInt p = nx * one;
+    check_contents(p, { 0UL, 1UL });
+    ASSERT(p.is_negative());
+  }
+
+  // x * 0 == 0 and 0 * x == 0 (for positive and negative x)
+  {
+    BigInt x = objs->two_pow_64;
+    BigInt z = objs->zero;
+    BigInt p1 = x * z;
+    BigInt p2 = z * x;
+    check_contents(p1, { 0UL });
+    check_contents(p2, { 0UL });
+    ASSERT(!p1.is_negative());
+    ASSERT(!p2.is_negative());
+  }
+
+  {
+    BigInt nx = objs->negative_two_pow_64;
+    BigInt z = objs->zero;
+    BigInt p = nx * z;
+    check_contents(p, { 0UL });
+    ASSERT(!p.is_negative());
+  }
+}
+
+void test_lshift_identity_zero(TestObjs *objs) {
+  // x << 0 == x (identity)
+  {
+    BigInt x = objs->two_pow_64;
+    BigInt r = x << 0;
+    check_contents(r, { 0UL, 1UL });
+    ASSERT(!r.is_negative());
+  }
+
+  // 0 << large == 0
+  {
+    BigInt z = objs->zero;
+    BigInt r = z << 1000;
+    check_contents(r, { 0UL });
+    ASSERT(!r.is_negative());
+  }
+}
+
+void test_compare_constructors(TestObjs *objs) {
+  // trailing zeros in initializer-list should not affect compare
+  BigInt a({1UL, 0UL, 0UL});
+  BigInt b({1UL});
+  ASSERT(a.compare(b) == 0);
+  ASSERT(b.compare(a) == 0);
 }
 
 void test_cancel(TestObjs *objs) {
@@ -761,4 +910,3 @@ void test_to_dec_2(TestObjs *) {
   }
 }
 
-// TODO: implement additional test functions

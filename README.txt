@@ -10,3 +10,5 @@ Milestone 1:
 
 Milestone 2: 
 - I realized that division is based on multiplication and substraction is based on addition. 
+- There is a lot of details in testing
+- It is important to think outside of +-*/

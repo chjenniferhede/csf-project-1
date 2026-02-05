@@ -24,8 +24,20 @@ BigInt::BigInt(std::initializer_list<uint64_t> vals, bool negative)
     this->negative = false;
     return;
   }
+
+  // Copy the provided 
   this->bit_vector = vals;
-  this->negative = negative;
+
+  // Trim any leading zero
+  while (this->bit_vector.size() > 1 && this->bit_vector.back() == 0) {
+    this->bit_vector.pop_back();
+  }
+  // If the value is zero after trimming, force non-negative canonical form
+  if (this->bit_vector.size() == 1 && this->bit_vector[0] == 0) {
+    this->negative = false;
+  } else {
+    this->negative = negative;
+  }
 }
 
 // Copy Constructor initializes to other's values
