@@ -4,15 +4,26 @@
 #include <algorithm>
 #include "bigint.h"
 
-// Notes: 
-// Vector is a resizable array, ArrayList. 
-// uint64_t is an unsigned 64-bit integer type.
-// the range is 0 → 18,446,744,073,709,551,615
+BigInt::BigInt() 
+{
+  this->bit_vector.push_back(0);
+  this->negative = false;
+}
 
+BigInt::BigInt(uint64_t val, bool negative) { 
+  this->bit_vector.push_back(val);
+  this->negative = negative;
+}
 
 // Constructor initializes to given values
 BigInt::BigInt(std::initializer_list<uint64_t> vals, bool negative)
 {
+  // If the initializer list is empty, initialize to zero
+  if (vals.size() == 0) {
+    this->bit_vector.push_back(0);
+    this->negative = false;
+    return;
+  }
   this->bit_vector = vals;
   this->negative = negative;
 }
@@ -103,8 +114,8 @@ BigInt BigInt::operator-() const
 bool BigInt::is_bit_set(unsigned n) const
 {
   // Each uint64_t has 64 bits
-  unsigned index = n / 64; // which uint64_t in the vector
-  unsigned bitPos = n % 64; // which bit in that uint64
+  size_t index = n / 64; // which uint64_t in the vector
+  size_t bitPos = n % 64; // which bit in that uint64
   uint64_t chunk = get_bits(index); // get the uint64_t at that index
   // true if n is set to 1
   if (chunk == 0) return false; // out of bound
@@ -113,17 +124,19 @@ bool BigInt::is_bit_set(unsigned n) const
 
 BigInt BigInt::operator<<(unsigned n) const
 {
+  // Defend against negative shift and shifting zero
+  if (this->negative) throw std::invalid_argument("Negative value cannot be bit shifted left");
   if (is_zero() || n == 0) return *this; 
 
   BigInt copy(*this);
 
   // Handle multiplication of 64 first
-  int pos = n / 64; 
+  size_t pos = n / 64; 
   copy.bit_vector.insert(copy.bit_vector.begin(), pos, 0);
   if (n % 64 == 0) return copy;
   
   // Setup 
-  int bitShift = n % 64;
+  size_t bitShift = n % 64;
   uint64_t carry = 0;
 
   // Shift bits in uint64_t to left by bitShift
@@ -147,7 +160,9 @@ BigInt BigInt::operator*(const BigInt &rhs) const
 {
   // Setup
   BigInt result = BigInt(0, false); 
-  if (this->is_zero() || rhs.is_zero()) return result;
+  BigInt absRhs = rhs;
+  absRhs.negative = false; // make rhs absolute for processing
+  if (this->is_zero() || absRhs.is_zero()) return result;
 
   // Compute the number of bits to decompose
   size_t decomposeSize = this->bit_vector.size() * 64;
@@ -156,7 +171,7 @@ BigInt BigInt::operator*(const BigInt &rhs) const
   for (size_t i = 0; i < decomposeSize; i++) { 
     // if it is a '1', start from least sig, left shift i bits in rhs
     if (this->is_bit_set(i)) { 
-      result = result + (rhs << i);
+      result = result + (absRhs << i);
     }
   }
 
@@ -169,20 +184,32 @@ BigInt BigInt::operator*(const BigInt &rhs) const
 
 BigInt BigInt::operator/(const BigInt &rhs) const
 {
+  // division by zero check
   if (rhs.is_zero()) {
     throw std::invalid_argument("Division by zero");
   }
 
-  // We know that the result is between 0 - this
+  // For correct comparison, all numbers must be non-negative
   BigInt lower(0, false);
-  BigInt upper = *this;
+  BigInt upper = (this->negative) ? -*this : *this; // must have the same sign
+  BigInt divisor = (rhs.negative) ? -rhs : rhs;
+  BigInt quotient = BigInt(0, false); // default to zero
+  // cases where result is zero
+  if (this->is_zero() || compare_magnitudes(upper, divisor) < 0) {
+    return quotient; 
+  }
 
-  // this can be recursive, so I wrote a helper
-  BigInt quotient = divide_helper(lower, upper, rhs);
+  // cases where result is one
+  if (compare_magnitudes(upper, divisor) == 0) {
+    quotient = BigInt(1, false);
+  } else {
+    // This can be recursive, so I wrote a helper
+    quotient = divide_helper(lower, upper, divisor);
+  }
 
-  // Correct the sign of the result
-  if (this->negative != rhs.negative) {
-    quotient.negative = true; 
+  // Correct the sign of the result (apply for all non-zero quotients)
+  if (!quotient.is_zero() && (this->negative != rhs.negative)) {
+    quotient.negative = true;
   }
 
   return quotient;
@@ -203,6 +230,7 @@ int BigInt::compare(const BigInt &rhs) const
   if (compare_magnitudes(*this, rhs) == 1) return (this->negative) ? -1 : 1; 
   // if 'this' has smaller magnitude, both negative means smaller mag is bigger
   if (compare_magnitudes(*this, rhs) == -1) return (this->negative) ? 1 : -1; 
+  return 0; // should not reach here
 }
 
 
@@ -255,16 +283,20 @@ std::string BigInt::to_dec() const
       this->bit_vector.size() == 1 && this->bit_vector[0] == 0) {
     return "0";
   }
-  // '-' sign if negative
+  // '-' sign if negative, also make it abs value for processing
   std::ostringstream result;
   if (this->negative) {
     result << '-';
   } 
+  
   // Collect the digits in reverse order, then reverse at the end
   std::string digits;
 
-  // Repeatedly divide by 10 and collect the remainders as digits
+  // Setup: make a absolute value copy
   BigInt copy(*this);
+  copy.negative = false;
+
+  // Repeatedly divide by 10 and collect the remainders as digits
   BigInt ten(10, false);
   while (!copy.is_zero()) {
     BigInt remainder = copy - (copy / ten) * ten; // copy % 10
@@ -281,7 +313,8 @@ std::string BigInt::to_dec() const
 // Helper functions
 bool BigInt::is_zero() const
 {
-  return (this->bit_vector.size() == 1 && this->bit_vector[0] == 0);
+  size_t size = this->bit_vector.size();
+  return ( size ==0 || size == 1 && this->bit_vector[0] == 0);
 }
 
 // Add the magnitudes ignoring the signs
@@ -333,12 +366,17 @@ BigInt BigInt::subtract_magnitudes(const BigInt &lhs, const BigInt &rhs)
   }
 
   // Get the bit vectors
-  const auto lhsVec = actualL->get_bit_vector();
-  const auto rhsVec = actualR->get_bit_vector();  
+  std::vector<uint64_t> lhsVec = actualL->get_bit_vector();
+  std::vector<uint64_t> rhsVec = actualR->get_bit_vector();  
 
   // Setup 
   std::vector<uint64_t> resultVec;
   uint64_t borrow = 0;
+  
+  // Padd zeros to rhsVec
+  while (rhsVec.size() < lhsVec.size()) {
+    rhsVec.push_back(0);
+  }
 
   // Substracting
   for (size_t i = 0; i < lhsVec.size(); i++) {
@@ -403,9 +441,18 @@ BigInt BigInt::div_by_2() const
 }
 
  BigInt BigInt::divide_helper(const BigInt &lower, const BigInt &upper, const BigInt &rhs) const{ 
-    
-  // Base cases
-  if (lower + BigInt(1) == upper || lower == upper) {
+
+  // Prepare absolute dividend for comparisons
+  BigInt absThis = *this;
+  absThis.negative = false;
+
+  // Base cases: if lower == upper, return lower
+  if (lower == upper) return lower;
+
+  // If adjacent, choose upper if it still fits, otherwise lower
+  if (lower + BigInt(1) == upper) {
+    BigInt prodUpper = rhs * upper;
+    if (compare_magnitudes(prodUpper, absThis) <= 0) return upper;
     return lower;
   }
 
@@ -415,12 +462,9 @@ BigInt BigInt::div_by_2() const
   // If the product is equal to 'this', we found the quotient
   BigInt prod = rhs * mid;
 
-  // call recursively
-  if (prod == *this) {
-    return mid;
-  } else if (prod < *this) {
-    return divide_helper(mid, upper, rhs);
-  } else {
-    return divide_helper(lower, mid, rhs);
-  }
+  // call recursively using magnitude comparisons against absThis
+  int cmp = compare_magnitudes(prod, absThis);
+  if (cmp == 0) return mid;
+  if (cmp < 0) return divide_helper(mid, upper, rhs);
+  return divide_helper(lower, mid, rhs);
 }
